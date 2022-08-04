@@ -1,130 +1,94 @@
 from __future__ import print_function
 import csv
 import pandas as pd
-import datetime
-import os.path
-
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from datetime import timedelta
+from datetime import datetime, timezone
+import credential_manager
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
-# If modifying these scopes, delete the file token.json.
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar']
+from models.Report import Report, Time_Entry
+from clients.CalendarClient import CalendarClient, EventClient
 
 def main():
-    creds = get_creds()
+    creds = credential_manager.get_creds()
 
     try:
         service = build('calendar', 'v3', credentials=creds)
-        tt_calendar = get_or_create_calendar(service, 'TimeTracker Calendar')
-        write_events_from_report(service, tt_calendar)
-        get_next_10_events(service, tt_calendar)
+        report = Report('report.csv');
+
+        min_endtime = report.get_min_endtime()
+        max_endtime = report.get_max_endtime()
+
+        tt_calendar = CalendarClient.get_or_create_calendar(service, 'TimeTracker Calendar')
+        gcal_intervals = get_google_calendar_events(service, tt_calendar, min_endtime, max_endtime)
+        sync_report_events_to_google_calendar(service, tt_calendar, report.intervals, gcal_intervals)
 
     except HttpError as error:
         print('An error occurred: %s' % error)
 
-def write_events_from_report(service, tt_calendar):
-    df = pd.read_csv("report.csv")
-    print(df.head())
-    for index, row in df.iterrows():
-        create_event(service, tt_calendar, row)
-
-def create_event(service, tt_calendar, row):
-    from_datetime = datetime.datetime.strptime(row['from'], '%d-%b-%Y %I:%M:%S %p')
-    to_datetime = datetime.datetime.strptime(row['to'], '%d-%b-%Y %I:%M:%S %p')
-
-    event = {
-      'summary': row['type'],
-      'description': f"Group: {row['group']} \nComment: {row['comment']}",
-      'start': {
-        'dateTime': from_datetime.isoformat(),
-        'timeZone': 'US/Eastern',
-      },
-      'end': {
-        'dateTime': to_datetime.isoformat(),
-        'timeZone': 'US/Eastern',
-      },
-    }
-
-    event = service.events().insert(calendarId=tt_calendar['id'], body=event).execute()
-    print('Event created: %s' % (event.get('htmlLink')))
-
-def get_creds():
-    """Shows basic usage of the Google Calendar API.
-    Prints the start and name of the next 10 events on the user's calendar.
-    """
-    creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-
-    return creds
-
-
-def get_or_create_calendar(service, name):
-    tt_calendar = get_calendar(service, name)
-    if (tt_calendar == None):
-        return create_calendar(service, name)
-    else:
-        return tt_calendar
-
-def get_calendar(service, name):
-    page_token = None
-    while True:
-        calendar_list = service.calendarList().list(pageToken=page_token).execute()
-        for calendar_list_entry in calendar_list['items']:
-            if (calendar_list_entry['summary'] == name):
-                print("match!!!!!")
-                return calendar_list_entry
-            print(calendar_list_entry['summary'])
-        page_token = calendar_list.get('nextPageToken')
-        if not page_token:
-            break
-
-    return None
-
-def create_calendar(service, name):
-    calendar = {
-        'summary': name,
-        'timeZone': 'America/Los_Angeles'
-    }
-
-    created_calendar = service.calendars().insert(body=calendar).execute()
-    return created_calendar
-
-def get_next_10_events(service, tt_calendar):
-    now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
-    print('Getting the upcoming 10 events')
-    print(tt_calendar['id'])
-
-    events_result = service.events().list(calendarId=tt_calendar['id'], timeMin=now,
-                                          maxResults=10, singleEvents=True,
+def get_google_calendar_events(service, calendar, min_endtime, max_endtime):
+    # Add and subtract a minute because event filter below is exclusive filter.
+    min_endtime = min_endtime - timedelta(minutes=1)
+    max_endtime = max_endtime + timedelta(minutes=1)
+    events_result = service.events().list(calendarId=calendar['id'],
+                                          maxResults=250, singleEvents=True,
+                                          timeMin= min_endtime.astimezone().isoformat(),
+                                          timeMax= max_endtime.astimezone().isoformat(),
                                           orderBy='startTime').execute()
+
     events = events_result.get('items', [])
 
     if not events:
         print('No upcoming events found.')
         return
 
-    # Prints the start and name of the next 10 events
-    for event in events:
-        start = event['start'].get('dateTime', event['start'].get('date'))
-        print(start, event['summary'])
+    return events
+
+def sync_report_events_to_google_calendar(service, calendar, report_intervals, gcal_intervals):
+    remove_intervals_from_gcal_that_dont_exist_in_report(service, calendar, report_intervals, gcal_intervals)
+    add_intervals_in_report_that_dont_exist_in_gcal(service, calendar, report_intervals, gcal_intervals)
+
+def remove_intervals_from_gcal_that_dont_exist_in_report(service, calendar, report_intervals, gcal_intervals):
+    for gcal_interval in gcal_intervals:
+        if (item_exists_in_report_interval_list(report_intervals, gcal_interval)):
+            continue
+        else:
+            service.events().delete(calendarId=calendar['id'], eventId=gcal_interval['id']).execute()
+            print('Event deleted: %s' % (gcal_interval.get('htmlLink')))
+
+def add_intervals_in_report_that_dont_exist_in_gcal(service, calendar, report_intervals, gcal_intervals):
+    for report_interval in report_intervals:
+        if (item_exists_in_gcal_interval_list(report_interval, gcal_intervals)):
+            continue
+        else:
+            EventClient.create_event(service, calendar, report_interval)
+
+def item_exists_in_report_interval_list(report_intervals, gcal_interval):
+    return any(is_gcalInterval_and_reportInterval_equal(report_interval, gcal_interval) for report_interval in report_intervals);
+
+def item_exists_in_gcal_interval_list(report_interval, gcal_intervals): 
+    return any(is_gcalInterval_and_reportInterval_equal(report_interval, gcal_interval) for gcal_interval in gcal_intervals);
+
+def is_gcalInterval_and_reportInterval_equal(report_interval, gcal_interval):
+    if (f"Group: {report_interval.group}" not in gcal_interval["description"]):
+        return False
+
+    if (not gcal_interval["summary"] == report_interval.type):
+        return False
+
+    if (not roundToNearestSec(datetime.strptime(gcal_interval["start"]["dateTime"], "%Y-%m-%dT%H:%M:%S%z").utcnow()) == roundToNearestSec(report_interval.starttime.utcnow())):
+        return False
+
+    if (not roundToNearestSec(datetime.strptime(gcal_interval["end"]["dateTime"], "%Y-%m-%dT%H:%M:%S%z").utcnow()) == roundToNearestSec(report_interval.endtime.utcnow())):
+        return False
+
+    if (f"Comment: {report_interval.comment}" not in gcal_interval["description"]):
+        return False
+
+    return True
+
+def roundToNearestSec(datetimeVal):
+    return datetimeVal - timedelta(microseconds=datetimeVal.microsecond)
 
 if __name__ == '__main__':
     main()
