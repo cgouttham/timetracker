@@ -25,3 +25,11 @@ class Time_Entry:
         self.starttime = datetime.strptime(row['from'], '%d-%b-%Y %I:%M:%S %p')
         self.endtime = datetime.strptime(row['to'], '%d-%b-%Y %I:%M:%S %p')
         self.comment = row["comment"]
+
+    def __init__(self, group, task_type, duration, starttime, endtime, comment):
+        self.group = group
+        self.type = task_type
+        self.duration = duration
+        self.starttime = starttime
+        self.endtime = endtime
+        self.comment = comment

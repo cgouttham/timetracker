@@ -4,7 +4,7 @@ class CalendarClient:
 	def get_or_create_calendar(service, name):
 	    tt_calendar = CalendarClient.get_calendar(service, name)
 	    if (tt_calendar == None):
-	        return create_calendar(service, name)
+	        return CalendarClient.create_calendar(service, name)
 	    else:
 	        return tt_calendar
 
