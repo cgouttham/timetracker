@@ -9,7 +9,7 @@ class Report:
     def parse_report(self, filepath):
         df = pd.read_csv(filepath)
         for index, row in df.iterrows():
-            self.intervals.append(Time_Entry(row))
+            self.intervals.append(Time_Entry(row["group"], row["type"], row["duration"], datetime.strptime(row['from'], '%d-%b-%Y %I:%M:%S %p'), datetime.strptime(row['to'], '%d-%b-%Y %I:%M:%S %p'), row["comment"]))
 
     def get_min_endtime(self):
         return min(self.intervals, key=lambda a : a.endtime).endtime
@@ -18,14 +18,6 @@ class Report:
         return max(self.intervals, key=lambda a : a.endtime).endtime
         
 class Time_Entry:
-    def __init__(self, row):
-        self.group = row["group"]
-        self.type = row["type"]
-        self.duration = row["duration"]
-        self.starttime = datetime.strptime(row['from'], '%d-%b-%Y %I:%M:%S %p')
-        self.endtime = datetime.strptime(row['to'], '%d-%b-%Y %I:%M:%S %p')
-        self.comment = row["comment"]
-
     def __init__(self, group, task_type, duration, starttime, endtime, comment):
         self.group = group
         self.type = task_type
