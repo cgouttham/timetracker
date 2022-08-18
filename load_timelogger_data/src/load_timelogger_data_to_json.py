@@ -7,98 +7,82 @@ import psycopg2
 from datetime import timedelta, datetime
 from requests.auth import HTTPBasicAuth
 
-def main():
-    get_types()
-    get_intervals()
 
-def get_types():
-    url = "https://app.atimelogger.com/api/v2/types"
-    response = requests.get(url, auth=HTTPBasicAuth(get_timeloggerapi_credentials()["username"], get_timeloggerapi_credentials()["password"]))
-
-    types = json.loads(response.content.decode())["types"]
-    with open("json_data/types.json", "w") as outfile:
-        json.dump(types, outfile, indent=4)
-
-def get_intervals():
-    url = "https://app.atimelogger.com/api/v2/intervals?limit=8000"
-    response = requests.get(url, auth=HTTPBasicAuth(get_timeloggerapi_credentials()["username"], get_timeloggerapi_credentials()["password"]))
-    intervals = json.loads(response.content.decode())["intervals"]
-    with open("json_data/intervals.json", "w") as outfile:
-        json.dump(intervals, outfile, indent=4)
-
-def get_timeloggerapi_credentials():
-    return json.load(open('assets/timeloggercredentials.json'))
-
-def add_ids_to_types():
-    d = {}
-    json_object  = json.load(open('json_data/types.json'))
-    for i in range(len(json_object)):
-        json_object[i]['id'] = i + 1
-        d[json_object[i]["guid"]] = json_object[i]
+class CredentialStore():
+    def get_timeloggerapi_credentials():
+        return json.load(open('assets/timeloggercredentials.json'))
+    
+    def get_timelogger_api_username():
+        return CredentialStore.get_timeloggerapi_credentials()["username"]
+    
+    def get_timelogger_api_password():
+        return CredentialStore.get_timeloggerapi_credentials()["password"]
+ 
+    def get_postgres_password():
+        return CredentialStore.get_timeloggerapi_credentials()["postgres_password"]
 
 
-    json_object = add_foreign_ids_to_types(json_object)
 
-    with open("json_data/types_output.json", "w") as outfile:
-        json.dump(json_object, outfile, indent=4)
+class DBConnectionClient():
+    def get_sql_db_connection():
+        return psycopg2.connect(
+            host="time-tracker-db.cfvlptn5awxs.us-east-2.rds.amazonaws.com",
+            database="postgres",
+            user="cgouttham",
+            password=CredentialStore.get_postgres_password())
 
-def convert_to_sql_readable_json():
-    input_json = json.load(open('json_data/types_output.json'))
-    output_json = {}
-    output_json['Types'] = []
-    for json_item in input_json:
-        output_json['Types'].append({ 'Type': json_item })
+class TypesTableCreator():
+    def create():
+        json_object = TypesTableCreator.get_types()
 
-    with open("json_data/types_output_for_sql.json", "w") as outfile:
-        json.dump(output_json, outfile, indent=4)
+        conn = DBConnectionClient.get_sql_db_connection()
+        cur = conn.cursor()
 
-    return output_json
+        TypesTableCreator.drop_and_recreate_types_table()
 
+        for type_obj in json_object:
+            type_name = type_obj['name']
+            type_is_activity_group = type_obj['group']
+            type_deleted = type_obj['deleted']
+            type_guid = type_obj['guid']
 
-def add_foreign_ids_to_types(json_object):
-    d = {}
-    for json_item in json_object:
-        d[json_item['guid']] = json_item['id']
+            if (type_obj['parent']):
+                type_parent = "'" + type_obj['parent'] + "'"
+            else:
+                type_parent = "null"
 
+            sql = f"""INSERT INTO type(Name, IsActivityGroup, Deleted, Guid, ParentGuid)
+                    VALUES('{type_name}', {type_is_activity_group}, {type_deleted}, '{type_guid}', {type_parent}) RETURNING guid;"""
+            cur.execute(sql)
+            # get the generated id back
+            typeid = cur.fetchone()[0]
+            print(typeid)
+            # commit the changes to the database
+            conn.commit()
 
-    for json_item in json_object:
-        if (json_item['parent'] != None):
-            json_item['parent_id'] = d[json_item['parent']]
-            json_item['parent_guid'] = d[json_item['parent']]
-        else:
-            json_item['parent_id'] = None
+    def get_types():
+        url = "https://app.atimelogger.com/api/v2/types"
+        response = requests.get(url, auth=HTTPBasicAuth(CredentialStore.get_timelogger_api_username(), CredentialStore.get_timelogger_api_password()))
 
-    return json_object
+        types = json.loads(response.content.decode())["types"]
+        with open("json_data/types.json", "w") as outfile:
+            json.dump(types, outfile, indent=4)
 
-def write_to_sql_table(json_object):
-    conn = psycopg2.connect(
-        host="time-tracker-db.cfvlptn5awxs.us-east-2.rds.amazonaws.com",
-        database="postgres",
-        user="cgouttham",
-        password=get_timeloggerapi_credentials()["postgres_password"])
+        return types
 
-    cur = conn.cursor()
-
-    for json_item in json_object["Types"]:
-        type_obj = json_item["Type"]
-
-        type_id = type_obj['id']
-        type_parent_id = type_obj['parent_id'] or 'null'
-        type_name = type_obj['name']
-        type_is_activity_group = type_obj['group']
-        type_deleted = type_obj['deleted']
-        type_guid = type_obj['guid']
-
-        sql = f"""INSERT INTO type(Id, ParentId, Name, IsActivityGroup, Deleted, Guid, ParentGuid)
-                VALUES({type_id}, {type_parent_id}, '{type_name}', {type_is_activity_group}, {type_deleted}, '{type_guid}', '{type_parent}') RETURNING id;"""
-        cur.execute(sql)
-        # get the generated id back
-        typeid = cur.fetchone()[0]
-        print(typeid)
-        # commit the changes to the database
+    def drop_and_recreate_types_table():
+        conn = DBConnectionClient.get_sql_db_connection()
+        cur = conn.cursor()
+        cur.execute("".join(open('drop_and_create_types.sql').readlines()))
         conn.commit()
 
-if __name__ == '__main__':
-    json_output = convert_to_sql_readable_json()
-    write_to_sql_table(json_output)
+class IntervalsTableCreator():
+    def get_intervals():
+        url = "https://app.atimelogger.com/api/v2/intervals?limit=8000"
+        response = requests.get(url, auth=HTTPBasicAuth(CredentialStore.get_timelogger_api_username(), CredentialStore.get_timelogger_api_password()))
+        intervals = json.loads(response.content.decode())["intervals"]
+        with open("json_data/intervals.json", "w") as outfile:
+            json.dump(intervals, outfile, indent=4)
 
+if __name__ == '__main__':
+    TypesTableCreator.create()

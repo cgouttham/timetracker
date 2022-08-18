@@ -1,15 +1,13 @@
 DROP TABLE Type CASCADE;
 
 CREATE TABLE Type (
-    Id int PRIMARY KEY,
-    ParentId int,
+    Guid uuid PRIMARY KEY,
+    ParentGuid uuid,
     Name varchar(50),
     CreatedTime timestamp default current_timestamp,
     LastUpdatedTime timestamp not null default now(),
     IsActivityGroup bool not null default false,
-    Deleted bool not null default false,
-    Guid varchar(50),
-    ParentGuid varchar(50)
+    Deleted bool not null default false
 );
 
 CREATE OR REPLACE FUNCTION trigger_set_timestamp()
@@ -45,7 +43,8 @@ FOR EACH ROW
 EXECUTE procedure trigger_set_timestamp();
 
 CREATE TABLE Interval (
-    IntervalID int PRIMARY KEY,
+    Guid varchar(50) PRIMARY KEY,
+    ActivityGuid varchar(50),
     Activity int,
     StartTime timestamp not null,
     EndTime timestamp not null,
