@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime, timezone
 import json
-from clients.CalendarClient import EventClient
+from clients.EventClient import EventClient
 
 def get_google_calendar_events(service, calendar, min_endtime, max_endtime):
     # Add and subtract a minute because event filter below is exclusive filter.
@@ -22,7 +22,7 @@ def get_google_calendar_events(service, calendar, min_endtime, max_endtime):
 
 def sync_report_events_to_google_calendar(service, calendar, report_intervals, gcal_intervals):
     remove_intervals_from_gcal_that_dont_exist_in_report(service, calendar, report_intervals, gcal_intervals)
-    add_intervals_in_report_that_dont_exist_in_gcal(service, calendar, report_intervals, gcal_intervals)
+    add_intervals_from_report_that_dont_exist_in_gcal(service, calendar, report_intervals, gcal_intervals)
 
 def remove_intervals_from_gcal_that_dont_exist_in_report(service, calendar, report_intervals, gcal_intervals):
     for gcal_interval in gcal_intervals:
@@ -32,7 +32,7 @@ def remove_intervals_from_gcal_that_dont_exist_in_report(service, calendar, repo
             service.events().delete(calendarId=calendar['id'], eventId=gcal_interval['id']).execute()
             print('Event deleted: %s' % (gcal_interval.get('htmlLink')))
 
-def add_intervals_in_report_that_dont_exist_in_gcal(service, calendar, report_intervals, gcal_intervals):
+def add_intervals_from_report_that_dont_exist_in_gcal(service, calendar, report_intervals, gcal_intervals):
     for report_interval in report_intervals:
         if (item_exists_in_gcal_interval_list(report_interval, gcal_intervals)):
             continue
