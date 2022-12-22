@@ -14,6 +14,7 @@ class CalendarClient:
 			calendar_list = service.calendarList().list(pageToken=page_token).execute()
 			for calendar_list_entry in calendar_list['items']:
 				if (calendar_list_entry['summary'] == name):
+					print("True")
 					return calendar_list_entry
 			page_token = calendar_list.get('nextPageToken')
 			if not page_token:

@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 import json
-from urllib.request import HTTPBasicAuthHandler
 from credential_manager import TimeLoggerCredentialsManager
 import requests
 from requests.auth import HTTPBasicAuth
@@ -16,10 +15,16 @@ class TimeLoggerClient:
 
     def get_types():
         url = "https://app.atimelogger.com/api/v2/types"
-
         response = requests.get(url, auth=HTTPBasicAuth(TimeLoggerCredentialsManager.get_creds()["username"], TimeLoggerCredentialsManager.get_creds()["password"]))
         types = json.loads(response.content.decode())["types"]
         types_dict = { x["guid"] : x for x in types }
+        return types_dict
+
+    def get_types_by_name():
+        url = "https://app.atimelogger.com/api/v2/types"
+        response = requests.get(url, auth=HTTPBasicAuth(TimeLoggerCredentialsManager.get_creds()["username"], TimeLoggerCredentialsManager.get_creds()["password"]))
+        types = json.loads(response.content.decode())["types"]
+        types_dict = { x["name"] : x for x in types if x["group"] == False }
         return types_dict
 
     def get_time_entries_from_api(min_endtime, max_endtime):

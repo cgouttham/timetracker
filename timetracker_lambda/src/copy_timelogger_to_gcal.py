@@ -7,11 +7,11 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from models.Time_Entry import Time_Entry
-from google_calender_sync_helper import get_google_calendar_events, sync_report_events_to_google_calendar
+from copy_timelogger_to_gcal_impl import sync_report_events_to_google_calendar
 from clients.CalendarClient import CalendarClient
 from clients.EventClient import EventClient 
 
-def sync_history_for_last_x_days(num_of_days):
+def tl_to_gc_sync_history_for_last_x_days(num_of_days):
     min_endtime =  datetime.now() - timedelta(days=num_of_days)
     max_endtime = datetime.now()
     sync_timelogger_entries_to_gc(min_endtime, max_endtime)
@@ -24,7 +24,7 @@ def sync_timelogger_entries_to_gc(from_endtime, to_endtime):
         
         timetracker_intervals = TimeLoggerClient.get_time_entries_from_api(from_endtime, to_endtime)
         tt_calendar = CalendarClient.get_or_create_calendar(service, 'TimeTracker Calendar')
-        gcal_intervals = get_google_calendar_events(service, tt_calendar, from_endtime, to_endtime)
+        gcal_intervals = EventClient.get_google_calendar_events(service, tt_calendar, from_endtime, to_endtime)
         
         print("Num of Intervals in Time Range", "\nTime Tracker Intervals: ", len(timetracker_intervals), "\nGoogle Calendar Intervals", len(gcal_intervals)) 
         sync_report_events_to_google_calendar(service, tt_calendar, timetracker_intervals, gcal_intervals)
