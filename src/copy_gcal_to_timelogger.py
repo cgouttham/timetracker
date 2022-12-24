@@ -1,4 +1,3 @@
-import json
 from clients.TimeLoggerClient import TimeLoggerClient
 from credential_manager import GoogleCredentialManager
 
@@ -6,7 +5,6 @@ from datetime import timedelta, datetime
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from models.Time_Entry import Time_Entry
 from copy_gcal_to_timelogger_impl import sync_report_events_to_google_calendar 
 from clients.CalendarClient import CalendarClient
 from clients.EventClient import EventClient

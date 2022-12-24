@@ -1,4 +1,3 @@
-import json
 from clients.TimeLoggerClient import TimeLoggerClient
 from credential_manager import GoogleCredentialManager
 
@@ -6,7 +5,6 @@ from datetime import timedelta, datetime
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from models.Time_Entry import Time_Entry
 from copy_timelogger_to_gcal_impl import sync_report_events_to_google_calendar
 from clients.CalendarClient import CalendarClient
 from clients.EventClient import EventClient 
@@ -46,4 +44,4 @@ def sync_all_of_history():
     print("completed");
 
 if __name__ == '__main__':
-    sync_history_for_last_x_days(10)
+    tl_to_gc_sync_history_for_last_x_days(10)

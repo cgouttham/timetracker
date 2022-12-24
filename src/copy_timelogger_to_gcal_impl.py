@@ -1,5 +1,3 @@
-from datetime import timedelta, datetime, timezone
-import json
 from clients.EventClient import EventClient
 from common_helper import item_exists_in_gcal_interval_list, item_exists_in_report_interval_list
 

@@ -3,7 +3,6 @@ import json
 from credential_manager import TimeLoggerCredentialsManager
 import requests
 from requests.auth import HTTPBasicAuth
-
 from models.Time_Entry import Time_Entry
 
 class TimeLoggerClient:

@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 class CalendarClient:
 	def get_or_create_calendar(service, name):
 		tt_calendar = CalendarClient.get_calendar(service, name)

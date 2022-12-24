@@ -1,5 +1,3 @@
-from datetime import datetime
-        
 class Time_Entry:
     def __init__(self, group, task_type, duration, starttime, endtime, comment):
         self.group = group

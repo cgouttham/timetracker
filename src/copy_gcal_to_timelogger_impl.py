@@ -1,9 +1,7 @@
-from datetime import timedelta, datetime, timezone
+from datetime import datetime, timezone
 import json
-from urllib import request
 import requests
-from clients.EventClient import EventClient 
-from common_helper import item_exists_in_report_interval_list, item_exists_in_report_interval_list_2, roundToNearestSec
+from common_helper import item_exists_in_report_interval_list_2, roundToNearestSec
 import uuid
 from requests.auth import HTTPBasicAuth
 

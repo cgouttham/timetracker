@@ -1,6 +1,4 @@
 from datetime import timedelta, datetime, timezone
-import json
-from clients.EventClient import EventClient
 
 def item_exists_in_report_interval_list(report_intervals, gcal_interval):
     return any(is_gcalInterval_and_reportInterval_equal(report_interval, gcal_interval) for report_interval in report_intervals);
