@@ -31,6 +31,9 @@ def __is_equal_when_source_is_timelogger_entry(report_interval, gcal_interval):
     if (gcal_interval["summary"] != report_interval.type):
         return False
 
+    if ("description" not in gcal_interval):
+        return False
+
     if (f"Group: {report_interval.group}" not in gcal_interval["description"]):
         return False
 
