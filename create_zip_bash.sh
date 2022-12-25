@@ -1,2 +1,4 @@
-zip -r my-deployment-package.zip ./src
-zip -r my-deployment-package.zip ./lib
+cd src
+zip -r ../my-deployment-package.zip .
+cd ../lib
+zip -r ../my-deployment-package.zip .
