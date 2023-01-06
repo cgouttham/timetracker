@@ -3,7 +3,7 @@ from copy_gcal_to_timelogger import sync_gc_entries_to_timelogger
 from copy_timelogger_to_gcal import tl_to_gc_sync_history_for_last_x_days
 
 def main():
-    from_endtime =  datetime.now() - timedelta(days=20)
+    from_endtime =  datetime.now() - timedelta(days=1)
     to_endtime = datetime.now() - timedelta(hours=3)
     sync_gc_entries_to_timelogger(from_endtime, to_endtime)
 
